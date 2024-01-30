@@ -1,0 +1,185 @@
+---
+output:
+  word_document: default
+  html_document: default
+---
+Load Packages
+```{r}
+#install.packages(openxlsx)
+#install.packages("rgl")
+#install.packages("plotly")
+library(openxlsx)
+library(tidyverse)
+library(readxl)
+library(ggplot2)
+
+data <- read_xls("C:/Users/KCVUSA1/Downloads/data_extraction_1.16.24.xls")
+
+colnames(data) <- tolower(colnames(data))
+data <- data %>% rename_with(~str_replace_all(., " ", "_"), everything())
+#str(data)
+#View(data)
+
+
+```
+Finding the Top 50 Article topics
+
+```{r}
+#Finding the Top 50 Article Topics
+topics_column <- data$keywords_plus
+
+# Concatenate all topics into a single string
+all_topics <- paste(topics_column, collapse = ';')
+
+# Split the string into a vector of individual topics
+all_topics_vector <- unlist(strsplit(all_topics, ';'))
+
+# Create a data frame from the vector of topics
+topics_df <- data.frame(topic = all_topics_vector)
+
+# Count the occurrences of each topic
+topic_counts <- table(topics_df$topic)
+
+# Order the topics by frequency in descending order
+sorted_topics <- sort(topic_counts, decreasing = TRUE)
+
+# Display the top 10 most common topics
+head(sorted_topics, 50)
+
+```
+T
+
+
+Converting the top 50 article topics to a histogram distribution
+```{r}
+# Convert the topic_counts to a data frame for plotting
+topics_df <- data.frame(topic = names(topic_counts), count = as.numeric(topic_counts))
+
+# Sort the data frame by count in descending order
+topics_df <- topics_df[order(-topics_df$count), ]
+
+# Select the first 50 topics
+topics_df <- head(topics_df, 20)
+
+# Create a histogram
+plot <- ggplot(topics_df, aes(x = reorder(topic, -count), y = count)) +
+  geom_bar(stat = "identity", fill = "blue") +
+  theme_minimal() +
+  labs(title = "Top 20 Most Common Topics",
+       x = "Topic",
+       y = "Frequency") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+print(plot)
+# Save the plot as a PNG file
+ggsave("top_20_topics_histogram.png", plot, width = 20, height = 6, units = "in")
+```
+
+Histogram of the most common Publishers
+```{r}
+
+# Use table function to get counts
+publisher_counts <- table(data$publisher)
+
+# Convert the table to a data frame
+publisher_counts_df <- as.data.frame(publisher_counts)
+
+# Rename the columns for clarity
+colnames(publisher_counts_df) <- c("Publisher", "Frequency")
+
+# Set a threshold for excluding the lowest values
+threshold <- 2  # Using the value 2 excludes publishers who've only published 1 paper
+
+# Filter data to exclude the lowest values
+filtered_data <- subset(publisher_counts_df, Frequency >= threshold)
+
+# Reorder levels based on frequency
+filtered_data$Publisher <- factor(filtered_data$Publisher, levels = names(sort(table(data$publisher), decreasing = TRUE)))
+
+# Create a regular bar plot with excluded lowest values
+plot3 <- ggplot(filtered_data, aes(x = Publisher, y = Frequency, fill = Publisher)) +
+  geom_bar(stat = "identity") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position = "none") +
+  labs(title = "Bar Plot of Publisher Frequency (Excluding Lowest Values)", 
+       x = "Publisher", y = "Frequency")
+print(plot3)
+
+#Save the plot as a PNG file
+ggsave("Publisher Frequency.jpg", plot3, width = 20, height = 6, units = "in")
+```
+
+
+
+Article Type Distribution
+```{r}
+
+#What type of articles are there?
+unique_article_types <- unique(data$document_type)
+print(unique_article_types)
+
+#How many articles and review are there?
+article <- "Journal"
+
+# Use table function to get counts
+article_type_counts <- table(data$document_type)
+print(article_type_counts)
+
+```
+
+Which article title appears most frequently?
+```{r}
+title_counts <- table(data$article_title)
+
+# Find the most common title
+most_common_title <- names(title_counts)[which.max(title_counts)]
+
+# Display the most common title
+print(most_common_title)
+
+#Display the articles
+associated_articles <- data[data$article_title == most_common_title, ]
+print(associated_articles)
+
+```
+
+PieChart
+```{r}
+
+# Use table function to get counts
+publisher_counts <- table(data$publisher)
+
+# Convert the table to a data frame
+publisher_counts_df <- as.data.frame(publisher_counts)
+
+# Rename the columns for clarity
+colnames(publisher_counts_df) <- c("Publisher", "Frequency")
+
+# Set a threshold for excluding the lowest values
+threshold <- 2  
+
+# Filter data to exclude the lowest values
+filtered_data <- subset(publisher_counts_df, Frequency >= threshold)
+
+# Reorder levels based on frequency
+filtered_data$Publisher <- factor(filtered_data$Publisher, levels = names(sort(table(data$publisher), decreasing = TRUE)))
+
+# Calculate percentages
+filtered_data$Percentage <- filtered_data$Frequency / sum(filtered_data$Frequency) * 100
+
+# Create a pie chart with distinct colors and percentage labels
+plot_pie <- ggplot(filtered_data, aes(x = "", y = Frequency, fill = Publisher)) +
+  geom_bar(stat = "identity", width = 1) +
+  coord_polar(theta = "y") +  # Convert to pie chart
+  theme_minimal() +
+  theme(axis.text.x = element_blank(),  # Remove x-axis text
+        ) +
+  labs(title = "Pie Chart of Publisher Frequency (Excluding Lowest Values)", 
+       x = NULL, y = NULL) +
+  geom_text(aes(label = paste0(round(Percentage, 1), "%")), position = position_stack(vjust = 0.5))
+
+print(plot_pie)
+ggsave("pie_chart.png", plot_pie, width = 8, height = 8, units = "in", dpi = 300)
+```
+
+
